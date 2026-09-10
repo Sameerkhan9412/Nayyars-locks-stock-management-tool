@@ -61,34 +61,50 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   const [note, setNote] = useState('');
 
   const fetchProduct = async () => {
+    if (!id || id === 'undefined') return;
     try {
-      const res = await fetch(`/api/products/${id}`);
-      if (!res.ok) throw new Error();
+      const res = await fetch(`/api/products/${id}`, {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache' }
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to load product details.');
+      }
       const result = await res.json();
       setProduct(result.product);
-    } catch (e) {
-      toast.error('Failed to load product details.');
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to load product details.');
     } finally {
       setLoading(false);
     }
   };
 
   const fetchHistory = async () => {
+    if (!id || id === 'undefined') return;
     try {
-      const res = await fetch(`/api/stock-history?productId=${id}`);
-      if (!res.ok) throw new Error();
+      const res = await fetch(`/api/stock-history?productId=${id}`, {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache' }
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || errorData.error || 'Failed to load stock history.');
+      }
       const result = await res.json();
       setHistory(result.history || []);
-    } catch (e) {
-      toast.error('Failed to load stock history.');
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to load stock history.');
     } finally {
       setHistoryLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchProduct();
-    fetchHistory();
+    if (id && id !== 'undefined') {
+      fetchProduct();
+      fetchHistory();
+    }
   }, [id]);
 
   const handleStockAdjustment = async (type: 'IN' | 'OUT') => {

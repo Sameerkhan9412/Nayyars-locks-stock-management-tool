@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import mongoose from 'mongoose';
 import dbConnect from '@/lib/mongodb';
 import Product from '@/models/Product';
 import Category from '@/models/Category';
@@ -23,6 +24,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     }
     
     const { id } = await params;
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+      return NextResponse.json({ error: 'Product not found' }, { status: 404 });
+    }
+
     const product = await Product.findById(id)
       .populate('categoryId', 'name')
       .populate('subcategoryId', 'name');
