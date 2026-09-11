@@ -16,7 +16,10 @@ import {
   AlertTriangle, 
   Package, 
   ChevronLeft, 
-  ChevronRight 
+  ChevronRight,
+  Boxes,
+  Layers,
+  RefreshCw 
 } from 'lucide-react';
 
 interface Category {
@@ -37,6 +40,8 @@ interface Product {
   subcategoryId: SubCategory;
   stock: number;
   lowStockLimit: number;
+  fulfilledUnits?: number;
+  grossStock?: number;
   createdAt: string;
 }
 
@@ -79,6 +84,13 @@ export default function ProductsPage() {
 
   const [filteredSubcategories, setFilteredSubcategories] = useState<SubCategory[]>([]);
 
+  // Bulk Restock modal state
+  const [isBulkRestockOpen, setIsBulkRestockOpen] = useState(false);
+  const [bulkRestockRows, setBulkRestockRows] = useState<{ productId: string; quantity: string }[]>([
+    { productId: '', quantity: '10' },
+  ]);
+  const [bulkRestockLoading, setBulkRestockLoading] = useState(false);
+
   const fetchFiltersData = async () => {
     try {
       const [catRes, subRes] = await Promise.all([
@@ -104,7 +116,13 @@ export default function ProductsPage() {
       queryParams.set('page', page.toString());
       queryParams.set('limit', pageSize.toString());
       
-      const res = await fetch(`/api/products?${queryParams.toString()}`);
+      const res = await fetch(`/api/products?${queryParams.toString()}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+        },
+      });
       if (!res.ok) throw new Error();
       const result = await res.json();
       setProducts(result.products || []);
@@ -171,6 +189,70 @@ export default function ProductsPage() {
       toast.error('Something went wrong.');
     } finally {
       setStockLoading(false);
+    }
+  };
+
+  const openBulkRestock = () => {
+    if (products.length === 0) return;
+    setBulkRestockRows([
+      { productId: products[0]._id, quantity: '10' },
+    ]);
+    setIsBulkRestockOpen(true);
+  };
+
+  const addBulkRestockRow = () => {
+    setBulkRestockRows((prev) => [...prev, { productId: products[0]?._id || '', quantity: '10' }]);
+  };
+
+  const removeBulkRestockRow = (index: number) => {
+    if (bulkRestockRows.length <= 1) return;
+    setBulkRestockRows((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleBulkRestockSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    for (const r of bulkRestockRows) {
+      if (!r.productId) {
+        toast.error('Please select a product for all rows');
+        return;
+      }
+      const q = parseInt(r.quantity, 10);
+      if (isNaN(q) || q <= 0) {
+        toast.error('Quantity must be greater than 0');
+        return;
+      }
+    }
+
+    setBulkRestockLoading(true);
+    try {
+      const res = await fetch('/api/products/bulk-stock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          adjustments: bulkRestockRows.map((r) => ({
+            productId: r.productId,
+            quantity: parseInt(r.quantity, 10),
+            type: 'IN',
+            note: 'Bulk restock shipment',
+          })),
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        if (data.totalRequirementsFulfilled > 0) {
+          toast.success(`Restocked products! Auto-fulfilled ${data.totalRequirementsFulfilled} customer requirement(s).`);
+        } else {
+          toast.success(`Successfully restocked ${data.updatedCount} products.`);
+        }
+        setIsBulkRestockOpen(false);
+        fetchProducts();
+      } else {
+        toast.error(data.error || 'Failed to bulk restock');
+      }
+    } catch (e) {
+      toast.error('Something went wrong');
+    } finally {
+      setBulkRestockLoading(false);
     }
   };
 
@@ -399,14 +481,44 @@ export default function ProductsPage() {
           </div>
         </div>
 
-        <button
-          onClick={openAdd}
-          disabled={categories.length === 0 || subcategories.length === 0}
-          className="flex items-center justify-center gap-1.5 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-neutral-955 text-xs font-bold uppercase tracking-wider rounded-md transition-colors cursor-pointer"
-        >
-          <Plus className="w-4 h-4" />
-          Add Product
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => fetchProducts()}
+            disabled={loading}
+            className="p-2.5 bg-neutral-850 hover:bg-neutral-800 text-neutral-300 rounded-md border border-neutral-750 transition-colors cursor-pointer"
+            title="Refresh Products"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-amber-500' : ''}`} />
+          </button>
+
+          <button
+            onClick={openBulkRestock}
+            disabled={products.length === 0}
+            className="flex items-center justify-center gap-1.5 px-3 py-2.5 bg-neutral-850 hover:bg-neutral-800 disabled:opacity-50 text-neutral-200 text-xs font-semibold rounded-md border border-neutral-750 transition-colors cursor-pointer"
+            title="Restock multiple products in one go"
+          >
+            <Layers className="w-4 h-4 text-emerald-400" />
+            Bulk Restock
+          </button>
+
+          <Link
+            href="/products/bulk-add"
+            className="flex items-center justify-center gap-1.5 px-3 py-2.5 bg-neutral-850 hover:bg-neutral-800 text-neutral-200 text-xs font-semibold rounded-md border border-neutral-750 transition-colors"
+            title="Add multiple products at once"
+          >
+            <Boxes className="w-4 h-4 text-amber-500" />
+            Bulk Add
+          </Link>
+
+          <button
+            onClick={openAdd}
+            disabled={categories.length === 0 || subcategories.length === 0}
+            className="flex items-center justify-center gap-1.5 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-neutral-955 text-xs font-bold uppercase tracking-wider rounded-md transition-colors cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            Add Product
+          </button>
+        </div>
       </div>
 
       {(categories.length === 0 || subcategories.length === 0) && !loading && (
@@ -446,7 +558,7 @@ export default function ProductsPage() {
                   <th className="py-3.5 px-6">Product</th>
                   <th className="py-3.5 px-6">Category</th>
                   <th className="py-3.5 px-6">Subcategory</th>
-                  <th className="py-3.5 px-6 text-right">Stock</th>
+                  <th className="py-3.5 px-6 text-right">Available Stock</th>
                   <th className="py-3.5 px-6 text-right">Limit</th>
                   <th className="py-3.5 px-6">Status</th>
                   <th className="py-3.5 px-6 text-right">Actions</th>
@@ -467,8 +579,15 @@ export default function ProductsPage() {
                     <td className="py-4 px-6 text-neutral-400">
                       {product.subcategoryId?.name ?? '-'}
                     </td>
-                    <td className="py-4 px-6 text-right font-mono font-bold text-white">
-                      {product.stock}
+                    <td className="py-4 px-6 text-right font-mono">
+                      <div className="font-bold text-white text-sm">
+                        {product.stock}
+                      </div>
+                      {product.fulfilledUnits && product.fulfilledUnits > 0 ? (
+                        <div className="text-[10px] text-neutral-400 font-normal mt-0.5">
+                          <span className="text-emerald-400 font-semibold">-{product.fulfilledUnits}</span> in orders
+                        </div>
+                      ) : null}
                     </td>
                     <td className="py-4 px-6 text-right font-mono text-neutral-400">
                       {product.lowStockLimit}
@@ -887,6 +1006,96 @@ export default function ProductsPage() {
             >
               {stockLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
               {stockType === 'IN' ? 'Confirm Add' : 'Confirm Remove'}
+            </button>
+          </div>
+        </form>
+      </Dialog>
+
+      {/* Bulk Restock Modal */}
+      <Dialog
+        isOpen={isBulkRestockOpen}
+        onClose={() => setIsBulkRestockOpen(false)}
+        title="Bulk Restock Products (Multi-Product Stock IN)"
+        maxWidth="lg"
+      >
+        <form onSubmit={handleBulkRestockSubmit} className="space-y-4">
+          <p className="text-xs text-neutral-400">
+            Select products and quantities to add incoming stock in batch. Any pending customer shortages will be auto-fulfilled!
+          </p>
+
+          <div className="space-y-2.5 max-h-[300px] overflow-y-auto pr-1">
+            {bulkRestockRows.map((row, idx) => (
+              <div key={idx} className="flex items-center gap-2 p-2 bg-neutral-955 border border-neutral-850 rounded-md">
+                <select
+                  value={row.productId}
+                  onChange={(e) => {
+                    const copy = [...bulkRestockRows];
+                    copy[idx].productId = e.target.value;
+                    setBulkRestockRows(copy);
+                  }}
+                  className="flex-1 px-3 py-1.5 bg-black text-neutral-200 border border-neutral-800 rounded text-xs focus:outline-hidden focus:border-amber-500 [&>option]:bg-black [&>option]:text-neutral-200 cursor-pointer"
+                >
+                  {products.map((p) => (
+                    <option key={p._id} value={p._id} className="bg-black text-neutral-200">
+                      {p.name} (Current Stock: {p.stock})
+                    </option>
+                  ))}
+                </select>
+
+                <div className="w-28 flex items-center gap-1">
+                  <span className="text-xs font-bold text-emerald-400 font-mono">+</span>
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    value={row.quantity}
+                    onChange={(e) => {
+                      const copy = [...bulkRestockRows];
+                      copy[idx].quantity = e.target.value;
+                      setBulkRestockRows(copy);
+                    }}
+                    placeholder="Qty"
+                    className="w-full px-2 py-1.5 bg-black text-neutral-200 border border-neutral-800 rounded text-xs text-right font-mono focus:outline-hidden focus:border-amber-500"
+                  />
+                </div>
+
+                {bulkRestockRows.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeBulkRestockRow(idx)}
+                    className="p-1.5 text-neutral-500 hover:text-red-400 transition-colors cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={addBulkRestockRow}
+            className="flex items-center gap-1.5 text-xs font-bold text-amber-500 hover:text-amber-400 transition-colors cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Add Another Product
+          </button>
+
+          <div className="flex justify-end gap-2 border-t border-neutral-800 pt-4 mt-2">
+            <button
+              type="button"
+              onClick={() => setIsBulkRestockOpen(false)}
+              className="px-4 py-2 bg-neutral-800 hover:bg-neutral-750 text-neutral-300 text-xs font-bold uppercase tracking-wider rounded-md transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={bulkRestockLoading}
+              className="flex items-center gap-1.5 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-neutral-950 text-xs font-bold uppercase tracking-wider rounded-md transition-colors cursor-pointer disabled:opacity-50"
+            >
+              {bulkRestockLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+              Add Stock to All
             </button>
           </div>
         </form>

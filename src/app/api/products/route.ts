@@ -1,9 +1,12 @@
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import Product from '@/models/Product';
 import Category from '@/models/Category';
 import SubCategory from '@/models/SubCategory';
 import StockMovement from '@/models/StockMovement';
+import CustomerRequirement from '@/models/CustomerRequirement';
 import { productSchema } from '@/lib/validations';
 import { getSessionUser } from '@/lib/auth';
 
@@ -42,17 +45,52 @@ export async function GET(req: Request) {
       .populate('subcategoryId', 'name')
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(limit);
-      
-    return NextResponse.json({
-      products,
-      pagination: {
-        total,
-        page,
-        limit,
-        totalPages,
+      .limit(limit)
+      .lean();
+
+    // Aggregate fulfilled quantities across all requirements for each product
+    const productIds = products.map((p) => p._id);
+    const fulfilledAgg = await CustomerRequirement.aggregate([
+      { $unwind: '$items' },
+      { $match: { 'items.productId': { $in: productIds } } },
+      {
+        $group: {
+          _id: '$items.productId',
+          totalFulfilled: { $sum: '$items.fulfilledQuantity' },
+        },
       },
+    ]);
+
+    const fulfilledMap = new Map<string, number>();
+    fulfilledAgg.forEach((item) => {
+      fulfilledMap.set(item._id.toString(), item.totalFulfilled || 0);
     });
+
+    const enrichedProducts = products.map((p) => {
+      const fulfilledUnits = fulfilledMap.get(p._id.toString()) || 0;
+      return {
+        ...p,
+        fulfilledUnits,
+        grossStock: p.stock + fulfilledUnits,
+      };
+    });
+      
+    return NextResponse.json(
+      {
+        products: enrichedProducts,
+        pagination: {
+          total,
+          page,
+          limit,
+          totalPages,
+        },
+      },
+      {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        },
+      }
+    );
   } catch (error) {
     console.error('Failed to fetch products:', error);
     return NextResponse.json({ error: 'Failed to fetch products' }, { status: 500 });

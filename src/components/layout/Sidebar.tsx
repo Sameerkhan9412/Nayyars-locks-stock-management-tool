@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { 
   LayoutDashboard, 
+  ClipboardList,
   FolderTree, 
   Layers, 
   Package, 
@@ -41,6 +42,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
   const navItems = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+    { name: 'Customer Orders', href: '/customer-requirements', icon: ClipboardList },
     { name: 'Categories', href: '/categories', icon: FolderTree },
     { name: 'Sub Categories', href: '/subcategories', icon: Layers },
     { name: 'Products', href: '/products', icon: Package },
@@ -65,6 +67,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       </Link>
     );
   };
+
 
   return (
     <>
@@ -102,8 +105,9 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           </div>
 
           <nav className="p-4 space-y-6">
-            <div>
+            <div className="space-y-1">
               <LinkItem item={navItems[0]} />
+              <LinkItem item={navItems[1]} />
             </div>
 
             <div className="space-y-2">
@@ -111,16 +115,17 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                 Inventory
               </div>
               <div className="space-y-1">
-                <LinkItem item={navItems[1]} />
                 <LinkItem item={navItems[2]} />
                 <LinkItem item={navItems[3]} />
+                <LinkItem item={navItems[4]} />
               </div>
             </div>
 
             <div>
-              <LinkItem item={navItems[4]} />
+              <LinkItem item={navItems[5]} />
             </div>
           </nav>
+
         </div>
 
         <div className="p-4 border-t border-neutral-900">

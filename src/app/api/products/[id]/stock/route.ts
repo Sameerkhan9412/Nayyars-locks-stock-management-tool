@@ -4,6 +4,7 @@ import Product from '@/models/Product';
 import StockMovement from '@/models/StockMovement';
 import { stockAdjustmentSchema } from '@/lib/validations';
 import { getSessionUser } from '@/lib/auth';
+import { fulfillPendingRequirementsForProduct } from '@/lib/stockHelper';
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -60,14 +61,25 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       note: note ? note.trim() : '',
       createdBy: user.id,
     });
+
+    let fulfilledCount = 0;
+    if (type === 'IN') {
+      const fulfillmentRes = await fulfillPendingRequirementsForProduct(product._id, user.id);
+      fulfilledCount = fulfillmentRes.fulfilledCount;
+    }
+
+    // Refresh product to return current stock (which might have been adjusted if auto-fulfilled)
+    const updatedProduct = await Product.findById(id);
     
     return NextResponse.json({
       success: true,
-      product,
+      product: updatedProduct || product,
       movement,
+      fulfilledCount,
     });
   } catch (error) {
     console.error('Stock adjustment error:', error);
     return NextResponse.json({ error: 'Failed to adjust stock' }, { status: 500 });
   }
 }
+
