@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -20,11 +21,6 @@ export default function SignupPage() {
     formState: { errors },
   } = useForm({
     resolver: zodResolver(signupSchema),
-    defaultValues: {
-      name: '',
-      email: '',
-      password: '',
-    },
   });
 
   const onSubmit = async (data: any) => {
@@ -36,13 +32,13 @@ export default function SignupPage() {
         body: JSON.stringify(data),
       });
 
-      const result = await res.json();
+      const json = await res.json();
       if (res.ok) {
-        toast.success('Account created successfully!');
+        toast.success('Account created successfully');
         router.push('/dashboard');
         router.refresh();
       } else {
-        toast.error(result.error || 'Registration failed');
+        toast.error(json.error || 'Failed to sign up');
       }
     } catch (e) {
       toast.error('Something went wrong. Please try again.');
@@ -55,12 +51,17 @@ export default function SignupPage() {
     <div className="flex items-center justify-center min-h-screen p-4 bg-neutral-950">
       <div className="w-full max-w-md bg-neutral-900 border border-neutral-800 rounded-lg p-8 shadow-xl">
         <div className="flex flex-col items-center mb-8">
-          <span className="text-2xl font-black tracking-widest text-white uppercase">
-            NAYYARS
-          </span>
-          <div className="h-[3px] w-16 bg-amber-500 mt-1" />
-          <span className="text-[10px] text-neutral-500 uppercase tracking-widest mt-2.5 font-bold">
-            Inventory System
+          <Image
+            src="/logo.png"
+            alt="NAYYARS Logo"
+            width={200}
+            height={66}
+            priority
+            className="h-12 w-auto object-contain mb-2.5"
+          />
+          <div className="h-[2px] w-20 bg-amber-500/60" />
+          <span className="text-[10px] text-neutral-400 uppercase tracking-widest mt-2 font-bold">
+            Inventory Management System
           </span>
         </div>
 

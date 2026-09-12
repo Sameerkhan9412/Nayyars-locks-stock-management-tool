@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { Menu } from 'lucide-react';
 
 interface HeaderProps {
@@ -32,7 +33,17 @@ export default function Header({ title, onMenuClick }: HeaderProps) {
           <Menu className="w-6 h-6" />
         </button>
 
-        <h1 className="text-sm font-bold text-white uppercase tracking-widest">
+        <div className="md:hidden flex items-center">
+          <Image
+            src="/logo.png"
+            alt="NAYYARS Logo"
+            width={85}
+            height={28}
+            className="h-6 w-auto object-contain"
+          />
+        </div>
+
+        <h1 className="text-sm font-bold text-white uppercase tracking-widest hidden sm:block">
           {title}
         </h1>
       </div>

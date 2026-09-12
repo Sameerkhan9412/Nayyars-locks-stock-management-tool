@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { 
   LayoutDashboard, 
@@ -31,12 +32,11 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       if (res.ok) {
         toast.success('Logged out successfully');
         router.push('/login');
-        router.refresh();
       } else {
-        toast.error('Logout failed');
+        toast.error('Failed to logout');
       }
-    } catch (e) {
-      toast.error('Something went wrong');
+    } catch {
+      toast.error('Network error while logging out');
     }
   };
 
@@ -44,26 +44,27 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Customer Orders', href: '/customer-requirements', icon: ClipboardList },
     { name: 'Categories', href: '/categories', icon: FolderTree },
-    { name: 'Sub Categories', href: '/subcategories', icon: Layers },
+    { name: 'Subcategories', href: '/subcategories', icon: Layers },
     { name: 'Products', href: '/products', icon: Package },
-    { name: 'Stock History', href: '/stock-history', icon: History },
+    { name: 'Stock Movements', href: '/stock-history', icon: History },
   ];
 
-  const LinkItem = ({ item }: { item: any }) => {
+  const LinkItem = ({ item }: { item: typeof navItems[0] }) => {
+    const isActive = pathname.startsWith(item.href);
     const Icon = item.icon;
-    const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
+
     return (
       <Link
         href={item.href}
         onClick={onClose}
-        className={`flex items-center gap-3 px-4 py-3 rounded-md text-sm font-medium transition-all ${
+        className={`flex items-center gap-3 px-4 py-2.5 rounded-md text-xs font-semibold uppercase tracking-wider transition-colors ${
           isActive
-            ? 'bg-neutral-900 text-amber-500 border-l-2 border-amber-500 font-semibold'
-            : 'text-neutral-400 hover:bg-neutral-900/55 hover:text-neutral-250'
+            ? 'bg-amber-500 text-neutral-950 font-bold'
+            : 'text-neutral-400 hover:text-white hover:bg-neutral-900'
         }`}
       >
-        <Icon className="w-5 h-5 flex-shrink-0" />
-        {item.name}
+        <Icon className={`w-4 h-4 ${isActive ? 'text-neutral-950' : 'text-neutral-400'}`} />
+        <span>{item.name}</span>
       </Link>
     );
   };
@@ -85,20 +86,26 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         style={{ backgroundColor: '#050505' }}
       >
         <div>
-          <div className="relative flex items-center justify-between px-6 py-5 border-b border-neutral-900">
-            <div className="flex flex-col">
-              <span className="text-lg font-black tracking-widest text-white uppercase">
-                NAYYARS
-              </span>
-              <div className="h-[2px] w-12 bg-amber-500 mt-1" />
-              <span className="text-[10px] text-neutral-500 uppercase tracking-widest mt-1.5 font-bold">
-                Locks & Hardware
-              </span>
-            </div>
+          <div className="relative flex items-center justify-between px-5 py-4 border-b border-neutral-900">
+            <Link href="/dashboard" className="flex items-center gap-3 group">
+              <div className="flex flex-col">
+                <Image
+                  src="/logo.png"
+                  alt="Nayyar Locks Logo"
+                  width={150}
+                  height={49}
+                  priority
+                  className="h-8 w-auto object-contain transition-transform group-hover:scale-[1.02]"
+                />
+                <span className="text-[9px] text-amber-500/90 uppercase tracking-widest mt-1 font-bold">
+                  Locks & Hardware
+                </span>
+              </div>
+            </Link>
 
             <button
               onClick={onClose}
-              className="md:hidden text-neutral-400 hover:text-white p-1 rounded-md hover:bg-neutral-900"
+              className="md:hidden text-neutral-400 hover:text-white p-1 rounded-md hover:bg-neutral-900 cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
