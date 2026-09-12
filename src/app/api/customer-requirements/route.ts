@@ -1,16 +1,29 @@
 export const dynamic = 'force-dynamic';
 
+import mongoose from 'mongoose';
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import Product from '@/models/Product';
 import StockMovement from '@/models/StockMovement';
 import CustomerRequirement from '@/models/CustomerRequirement';
+import User from '@/models/User';
 import { customerRequirementSchema } from '@/lib/validations';
 import { getSessionUser } from '@/lib/auth';
+
+function ensureModelsRegistered() {
+  if (!mongoose.models.Product) {
+    mongoose.model('Product', Product.schema);
+  }
+  if (!mongoose.models.User) {
+    mongoose.model('User', User.schema);
+  }
+}
 
 export async function GET(req: Request) {
   try {
     await dbConnect();
+    ensureModelsRegistered();
+
     const user = await getSessionUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -30,7 +43,8 @@ export async function GET(req: Request) {
     }
 
     if (search && search.trim() !== '') {
-      const regex = new RegExp(search.trim(), 'i');
+      const escapedSearch = search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(escapedSearch, 'i');
       query.$or = [
         { customerName: regex },
         { 'items.productName': regex },
@@ -51,16 +65,23 @@ export async function GET(req: Request) {
         },
       }
     );
-  } catch (error) {
-
+  } catch (error: any) {
     console.error('Failed to fetch customer requirements:', error);
-    return NextResponse.json({ error: 'Failed to fetch customer requirements' }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: 'Failed to fetch customer requirements',
+        message: error?.message || 'Internal Server Error',
+      },
+      { status: 500 }
+    );
   }
 }
 
 export async function POST(req: Request) {
   try {
     await dbConnect();
+    ensureModelsRegistered();
+
     const user = await getSessionUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -149,8 +170,14 @@ export async function POST(req: Request) {
       success: true,
       requirement: populated,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to create customer requirement:', error);
-    return NextResponse.json({ error: 'Failed to create customer requirement' }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: 'Failed to create customer requirement',
+        message: error?.message || 'Internal Server Error',
+      },
+      { status: 500 }
+    );
   }
 }

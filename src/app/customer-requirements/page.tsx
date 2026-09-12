@@ -95,11 +95,13 @@ export default function CustomerRequirementsPage() {
           'Pragma': 'no-cache',
         },
       });
-      if (!res.ok) throw new Error();
       const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.message || data?.error || 'Failed to load customer requirements');
+      }
       setRequirements(data.requirements || []);
-    } catch (e) {
-      toast.error('Failed to load customer requirements');
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to load customer requirements');
     }
   };
 
@@ -112,11 +114,13 @@ export default function CustomerRequirementsPage() {
           'Pragma': 'no-cache',
         },
       });
-      if (!res.ok) throw new Error();
       const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.message || data?.error || 'Failed to load products list');
+      }
       setProducts(data.products || []);
-    } catch (e) {
-      toast.error('Failed to load products list');
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to load products list');
     }
   };
 

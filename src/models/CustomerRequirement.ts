@@ -1,4 +1,6 @@
 import mongoose, { Schema, Document, model, models } from 'mongoose';
+import '@/models/User';
+import '@/models/Product';
 
 export interface IRequirementItem {
   _id?: mongoose.Types.ObjectId;

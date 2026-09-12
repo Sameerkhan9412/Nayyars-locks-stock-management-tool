@@ -1,15 +1,28 @@
 export const dynamic = 'force-dynamic';
 
+import mongoose from 'mongoose';
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import Product from '@/models/Product';
 import StockMovement from '@/models/StockMovement';
 import CustomerRequirement from '@/models/CustomerRequirement';
+import User from '@/models/User';
 import { getSessionUser } from '@/lib/auth';
+
+function ensureModelsRegistered() {
+  if (!mongoose.models.Product) {
+    mongoose.model('Product', Product.schema);
+  }
+  if (!mongoose.models.User) {
+    mongoose.model('User', User.schema);
+  }
+}
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     await dbConnect();
+    ensureModelsRegistered();
+
     const user = await getSessionUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -25,9 +38,15 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     }
 
     return NextResponse.json({ requirement });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to fetch requirement:', error);
-    return NextResponse.json({ error: 'Failed to fetch requirement' }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: 'Failed to fetch requirement',
+        message: error?.message || 'Internal Server Error',
+      },
+      { status: 500 }
+    );
   }
 }
 
@@ -37,6 +56,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     await dbConnect();
+    ensureModelsRegistered();
+
     const user = await getSessionUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -128,9 +149,15 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       requirement: updated,
       modified,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to update requirement:', error);
-    return NextResponse.json({ error: 'Failed to update requirement' }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: 'Failed to update requirement',
+        message: error?.message || 'Internal Server Error',
+      },
+      { status: 500 }
+    );
   }
 }
 
@@ -141,6 +168,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     await dbConnect();
+    ensureModelsRegistered();
+
     const user = await getSessionUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -189,9 +218,15 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
         ? 'Order cancelled and stock restored to warehouse successfully'
         : 'Order record deleted successfully',
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to delete requirement:', error);
-    return NextResponse.json({ error: 'Failed to delete requirement' }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: 'Failed to delete requirement',
+        message: error?.message || 'Internal Server Error',
+      },
+      { status: 500 }
+    );
   }
 }
 
