@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { useToast } from '@/components/ui/Toast';
+import Pagination, { usePagination } from '@/components/ui/Pagination';
 import { Loader2, History, TrendingUp, TrendingDown, RefreshCw, Search, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 
@@ -85,6 +86,8 @@ export default function StockHistoryPage() {
       return matchesType && matchesSearch;
     });
   }, [history, filterType, search]);
+
+  const { pageItems: pagedHistory, paginationProps } = usePagination(filteredHistory, [filterType, search]);
 
   return (
     <AppLayout title="Stock History">
@@ -194,7 +197,7 @@ export default function StockHistoryPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-850">
-                {filteredHistory.map((mov) => {
+                {pagedHistory.map((mov) => {
                   const isStockIn = mov.type === 'IN';
                   return (
                     <tr
@@ -266,6 +269,7 @@ export default function StockHistoryPage() {
             </table>
           </div>
         )}
+        {!loading && filteredHistory.length > 0 && <Pagination {...paginationProps} label="movements" />}
       </div>
     </AppLayout>
   );

@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import Dialog from '@/components/ui/Dialog';
 import { useToast } from '@/components/ui/Toast';
+import Pagination, { usePagination } from '@/components/ui/Pagination';
 import { Loader2, Plus, Edit2, Trash2, AlertTriangle, FolderTree } from 'lucide-react';
 
 interface Category {
@@ -15,6 +16,7 @@ interface Category {
 export default function CategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
+  const { pageItems: pagedCategories, paginationProps } = usePagination(categories);
   const [submitLoading, setSubmitLoading] = useState(false);
   const toast = useToast();
 
@@ -187,7 +189,7 @@ export default function CategoriesPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-850">
-                {categories.map((category) => (
+                {pagedCategories.map((category) => (
                   <tr
                     key={category._id}
                     className="hover:bg-neutral-850/50 transition-colors"
@@ -224,6 +226,7 @@ export default function CategoriesPage() {
             </table>
           </div>
         )}
+        {!loading && categories.length > 0 && <Pagination {...paginationProps} label="categories" />}
       </div>
 
       <Dialog

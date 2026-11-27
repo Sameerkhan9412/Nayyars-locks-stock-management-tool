@@ -4,6 +4,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import Dialog from '@/components/ui/Dialog';
 import { useToast } from '@/components/ui/Toast';
+import Pagination, { usePagination } from '@/components/ui/Pagination';
 import {
   Loader2,
   Plus,
@@ -356,6 +357,8 @@ export default function CustomerRequirementsPage() {
   }, [requirements, statusFilter, search]);
 
   // Summary counts
+  const { pageItems: pagedRequirements, paginationProps } = usePagination(filteredRequirements, [statusFilter, search], 10);
+
   const totalCount = requirements.length;
   const activeCount = requirements.filter((r) => r.overallStatus !== 'DELIVERED' && r.overallStatus !== 'CANCELLED').length;
   const shortageCount = requirements.filter((r) => r.overallStatus === 'PENDING_STOCK' || r.overallStatus === 'PARTIALLY_FULFILLED').length;
@@ -537,7 +540,7 @@ export default function CustomerRequirementsPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {filteredRequirements.map((req) => {
+          {pagedRequirements.map((req) => {
             const isShortage = req.overallStatus !== 'FULFILLED';
             const allItemsFulfilled = req.overallStatus === 'FULFILLED';
 
@@ -757,6 +760,9 @@ export default function CustomerRequirementsPage() {
               </div>
             );
           })}
+          <div className="bg-neutral-900 border border-neutral-800 rounded-md overflow-hidden">
+            <Pagination {...paginationProps} label="orders" />
+          </div>
         </div>
       )}
 

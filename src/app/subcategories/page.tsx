@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import Dialog from '@/components/ui/Dialog';
 import { useToast } from '@/components/ui/Toast';
+import Pagination, { usePagination } from '@/components/ui/Pagination';
 import { Loader2, Plus, Edit2, Trash2, AlertTriangle, Layers } from 'lucide-react';
 
 interface Category {
@@ -22,6 +23,7 @@ export default function SubcategoriesPage() {
   const [subcategories, setSubcategories] = useState<SubCategory[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
+  const { pageItems: pagedSubcategories, paginationProps } = usePagination(subcategories);
   const [submitLoading, setSubmitLoading] = useState(false);
   const toast = useToast();
 
@@ -226,7 +228,7 @@ export default function SubcategoriesPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-850">
-                {subcategories.map((sub) => (
+                {pagedSubcategories.map((sub) => (
                   <tr
                     key={sub._id}
                     className="hover:bg-neutral-850/50 transition-colors"
@@ -266,6 +268,7 @@ export default function SubcategoriesPage() {
             </table>
           </div>
         )}
+        {!loading && subcategories.length > 0 && <Pagination {...paginationProps} label="subcategories" />}
       </div>
 
       <Dialog

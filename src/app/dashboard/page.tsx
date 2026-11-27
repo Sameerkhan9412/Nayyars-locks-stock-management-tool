@@ -5,6 +5,7 @@ import AppLayout from '@/components/layout/AppLayout';
 import Dialog from '@/components/ui/Dialog';
 import StatusBadge from '@/components/ui/StatusBadge';
 import { useToast } from '@/components/ui/Toast';
+import Pagination, { usePagination } from '@/components/ui/Pagination';
 import { 
   FolderTree, 
   Layers, 
@@ -130,6 +131,9 @@ export default function DashboardPage() {
       setRestockLoading(false);
     }
   };
+
+  const { pageItems: pagedShortages, paginationProps: shortagesPagination } = usePagination(data?.customerShortages ?? []);
+  const { pageItems: pagedLowStock, paginationProps: lowStockPagination } = usePagination(data?.lowStockProducts ?? []);
 
   if (loading) {
     return (
@@ -357,7 +361,7 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-850">
-                {shortages.map((item, idx) => (
+                {pagedShortages.map((item, idx) => (
                   <tr key={idx} className="bg-red-500/5 hover:bg-red-500/10 transition-colors">
                     <td className="py-3 px-4 font-bold text-white">
                       {item.customerName}
@@ -398,6 +402,9 @@ export default function DashboardPage() {
             </table>
           </div>
         )}
+        {hasShortages && (
+          <div className="-mx-6 -mb-6 mt-4 rounded-b-md overflow-hidden"><Pagination {...shortagesPagination} label="shortages" /></div>
+        )}
       </div>
 
       {/* Low Stock Alert Section */}
@@ -433,7 +440,7 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-850">
-                {data?.lowStockProducts.map((product) => (
+                {pagedLowStock.map((product) => (
                   <tr
                     key={product._id}
                     className="hover:bg-neutral-850/50 transition-colors"
@@ -472,6 +479,9 @@ export default function DashboardPage() {
               </tbody>
             </table>
           </div>
+        )}
+        {isLowStockAlert && (
+          <div className="-mx-6 -mb-6 mt-4 rounded-b-md overflow-hidden"><Pagination {...lowStockPagination} label="products" /></div>
         )}
       </div>
 
