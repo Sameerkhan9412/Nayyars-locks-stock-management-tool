@@ -46,6 +46,19 @@ export const customerRequirementSchema = z.object({
   items: z.array(customerRequirementItemSchema).min(1, { message: 'At least one product item is required' }),
 });
 
+export const customerRequirementEditSchema = z.object({
+  customerName: z.string().min(1, { message: 'Customer name is required' }),
+  customerPhone: z.string().optional().nullable(),
+  note: z.string().optional().nullable(),
+  items: z
+    .array(
+      customerRequirementItemSchema.extend({
+        itemId: z.string().optional().nullable(),
+      })
+    )
+    .min(1, { message: 'At least one product item is required' }),
+});
+
 export const bulkProductItemSchema = z.object({
   name: z.string().min(1, { message: 'Product name is required' }),
   categoryId: z.string().min(1, { message: 'Category is required' }),

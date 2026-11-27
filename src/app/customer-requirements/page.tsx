@@ -10,6 +10,7 @@ import {
   Loader2,
   Plus,
   Trash2,
+  Pencil,
   Search,
   AlertTriangle,
   CheckCircle2,
@@ -59,6 +60,10 @@ interface NewItemRow {
   productId: string;
   product: PickerProduct | null;
   requestedQuantity: string;
+  // Only set when editing an existing order item
+  itemId?: string;
+  origProductId?: string;
+  fulfilled?: number;
 }
 
 export default function CustomerRequirementsPage() {
@@ -77,6 +82,9 @@ export default function CustomerRequirementsPage() {
   const [itemRows, setItemRows] = useState<NewItemRow[]>([
     { productId: '', product: null, requestedQuantity: '1' },
   ]);
+
+  // When set, the form below edits this order instead of creating a new one
+  const [editTarget, setEditTarget] = useState<CustomerRequirement | null>(null);
 
   // Quick Restock Modal State
   const [isRestockOpen, setIsRestockOpen] = useState(false);
@@ -117,7 +125,32 @@ export default function CustomerRequirementsPage() {
     loadAll();
   }, []);
 
+  const openEditModal = (req: CustomerRequirement) => {
+    setEditTarget(req);
+    setCustomerName(req.customerName);
+    setCustomerPhone(req.customerPhone || '');
+    setOrderNote(req.note || '');
+    setItemRows(
+      req.items.map((item) => {
+        const p: any = item.productId;
+        const hasProduct = p && typeof p === 'object' && p._id;
+        return {
+          itemId: item._id,
+          productId: hasProduct ? p._id : '',
+          origProductId: hasProduct ? p._id : undefined,
+          fulfilled: item.fulfilledQuantity || 0,
+          product: hasProduct
+            ? { _id: p._id, name: p.name ?? item.productName, stock: p.stock ?? 0, lowStockLimit: p.lowStockLimit ?? 0 }
+            : null,
+          requestedQuantity: String(item.requestedQuantity),
+        };
+      })
+    );
+    setIsAddOpen(true);
+  };
+
   const openAddModal = () => {
+    setEditTarget(null);
     setCustomerName('');
     setCustomerPhone('');
     setOrderNote('');
@@ -167,23 +200,28 @@ export default function CustomerRequirementsPage() {
 
     setSubmitLoading(true);
     try {
-      const res = await fetch('/api/customer-requirements', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          customerName: customerName.trim(),
-          customerPhone: customerPhone.trim(),
-          note: orderNote.trim(),
-          items: itemRows.map((r) => ({
-            productId: r.productId,
-            requestedQuantity: parseInt(r.requestedQuantity, 10),
-          })),
-        }),
-      });
+      const res = await fetch(
+        editTarget ? `/api/customer-requirements/${editTarget._id}` : '/api/customer-requirements',
+        {
+          method: editTarget ? 'PUT' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...(editTarget ? { action: 'EDIT' } : {}),
+            customerName: customerName.trim(),
+            customerPhone: customerPhone.trim(),
+            note: orderNote.trim(),
+            items: itemRows.map((r) => ({
+              ...(editTarget && r.itemId ? { itemId: r.itemId } : {}),
+              productId: r.productId,
+              requestedQuantity: parseInt(r.requestedQuantity, 10),
+            })),
+          }),
+        }
+      );
 
       const data = await res.json();
       if (res.ok) {
-        toast.success('Customer requirement added successfully');
+        toast.success(editTarget ? 'Order updated successfully' : 'Customer requirement added successfully');
         setIsAddOpen(false);
         await loadAll();
       } else {
@@ -619,6 +657,17 @@ export default function CustomerRequirementsPage() {
                       </button>
                     )}
 
+                    {req.overallStatus !== 'DELIVERED' && req.overallStatus !== 'CANCELLED' && (
+                      <button
+                        onClick={() => openEditModal(req)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-800 hover:bg-neutral-750 text-neutral-200 text-xs font-semibold rounded-md border border-neutral-700 transition-colors cursor-pointer"
+                        title="Edit customer details, products or quantities"
+                      >
+                        <Pencil className="w-3.5 h-3.5 text-amber-500" />
+                        Edit
+                      </button>
+                    )}
+
                     <button
                       onClick={() => setDeleteTarget(req)}
                       className="p-1.5 text-neutral-500 hover:text-red-400 rounded-md hover:bg-neutral-800 transition-colors cursor-pointer"
@@ -751,7 +800,7 @@ export default function CustomerRequirementsPage() {
       <Dialog
         isOpen={isAddOpen}
         onClose={() => setIsAddOpen(false)}
-        title="New Customer Requirement (Multi-Item Order)"
+        title={editTarget ? `Edit Order - ${editTarget.customerName}` : 'New Customer Requirement (Multi-Item Order)'}
         maxWidth="lg"
       >
         <form onSubmit={handleCreateSubmit} className="space-y-4">
@@ -827,8 +876,12 @@ export default function CustomerRequirementsPage() {
               {itemRows.map((row, index) => {
                 const selectedProduct = row.product;
                 const reqQty = parseInt(row.requestedQuantity, 10) || 0;
-                const hasEnoughStock = selectedProduct ? selectedProduct.stock >= reqQty : false;
-                const deficit = selectedProduct ? Math.max(0, reqQty - selectedProduct.stock) : 0;
+                // When editing, units already deducted for this item are still ours to use
+                const availableStock = selectedProduct
+                  ? selectedProduct.stock + (row.origProductId === selectedProduct._id ? row.fulfilled ?? 0 : 0)
+                  : 0;
+                const hasEnoughStock = selectedProduct ? availableStock >= reqQty : false;
+                const deficit = selectedProduct ? Math.max(0, reqQty - availableStock) : 0;
 
                 return (
                   <div
@@ -875,7 +928,7 @@ export default function CustomerRequirementsPage() {
                       <div className="p-2.5 rounded bg-black/70 border border-neutral-800 text-[11px] space-y-1 mt-1.5">
                         <div className="flex items-center justify-between text-neutral-400">
                           <span>Total In-Hand Stock Before Order:</span>
-                          <span className="font-mono font-bold text-white">{selectedProduct.stock} units</span>
+                          <span className="font-mono font-bold text-white">{availableStock} units</span>
                         </div>
                         <div className="flex items-center justify-between text-neutral-400">
                           <span>Quantity to Deduct for Customer:</span>
@@ -885,7 +938,7 @@ export default function CustomerRequirementsPage() {
                           <span className="font-semibold text-neutral-300">Remaining In-Hand Stock After Order:</span>
                           {hasEnoughStock ? (
                             <span className="font-mono font-bold text-emerald-400">
-                              {selectedProduct.stock - reqQty} units (Available)
+                              {availableStock - reqQty} units (Available)
                             </span>
                           ) : (
                             <span className="font-mono font-bold text-red-400">
@@ -926,7 +979,7 @@ export default function CustomerRequirementsPage() {
               className="flex items-center gap-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-neutral-950 text-xs font-bold uppercase tracking-wider rounded-md transition-colors cursor-pointer disabled:opacity-50"
             >
               {submitLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-              Save Requirement & Deduct Stock
+              {editTarget ? 'Update Order' : 'Save Requirement & Deduct Stock'}
             </button>
           </div>
         </form>
