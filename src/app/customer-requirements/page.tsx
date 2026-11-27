@@ -4,6 +4,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import Dialog from '@/components/ui/Dialog';
 import { useToast } from '@/components/ui/Toast';
+import ProductPicker, { PickerProduct } from '@/components/ui/ProductPicker';
 import Pagination, { usePagination } from '@/components/ui/Pagination';
 import {
   Loader2,
@@ -56,12 +57,12 @@ interface CustomerRequirement {
 
 interface NewItemRow {
   productId: string;
+  product: PickerProduct | null;
   requestedQuantity: string;
 }
 
 export default function CustomerRequirementsPage() {
   const [requirements, setRequirements] = useState<CustomerRequirement[]>([]);
-  const [products, setProducts] = useState<ProductOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'ACTIVE' | 'PENDING_STOCK' | 'FULFILLED' | 'DELIVERED' | 'ALL'>('ACTIVE');
@@ -74,7 +75,7 @@ export default function CustomerRequirementsPage() {
   const [customerPhone, setCustomerPhone] = useState('');
   const [orderNote, setOrderNote] = useState('');
   const [itemRows, setItemRows] = useState<NewItemRow[]>([
-    { productId: '', requestedQuantity: '1' },
+    { productId: '', product: null, requestedQuantity: '1' },
   ]);
 
   // Quick Restock Modal State
@@ -106,28 +107,9 @@ export default function CustomerRequirementsPage() {
     }
   };
 
-  const fetchProducts = async () => {
-    try {
-      const res = await fetch('/api/products?limit=500', {
-        cache: 'no-store',
-        headers: {
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-        },
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data?.message || data?.error || 'Failed to load products list');
-      }
-      setProducts(data.products || []);
-    } catch (e: any) {
-      toast.error(e?.message || 'Failed to load products list');
-    }
-  };
-
   const loadAll = async () => {
     setLoading(true);
-    await Promise.all([fetchRequirements(), fetchProducts()]);
+    await fetchRequirements();
     setLoading(false);
   };
 
@@ -139,12 +121,12 @@ export default function CustomerRequirementsPage() {
     setCustomerName('');
     setCustomerPhone('');
     setOrderNote('');
-    setItemRows([{ productId: products[0]?._id || '', requestedQuantity: '1' }]);
+    setItemRows([{ productId: '', product: null, requestedQuantity: '1' }]);
     setIsAddOpen(true);
   };
 
   const addItemRow = () => {
-    setItemRows((prev) => [...prev, { productId: products[0]?._id || '', requestedQuantity: '1' }]);
+    setItemRows((prev) => [...prev, { productId: '', product: null, requestedQuantity: '1' }]);
   };
 
   const removeItemRow = (index: number) => {
@@ -280,12 +262,11 @@ export default function CustomerRequirementsPage() {
     }
   };
 
-  const openQuickRestock = (productId: string, productName: string, deficit: number) => {
-    const prod = products.find((p) => p._id === productId);
+  const openQuickRestock = (productId: string, productName: string, deficit: number, liveStock: number) => {
     setRestockProduct({
       id: productId,
       name: productName,
-      currentStock: prod ? prod.stock : 0,
+      currentStock: liveStock,
     });
     setRestockQty(deficit > 0 ? deficit.toString() : '50');
     setIsRestockOpen(true);
@@ -506,7 +487,6 @@ export default function CustomerRequirementsPage() {
           </button>
           <button
             onClick={openAddModal}
-            disabled={products.length === 0}
             className="flex items-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-neutral-950 text-xs font-bold uppercase tracking-wider rounded-md transition-colors cursor-pointer"
           >
             <Plus className="w-4 h-4" />
@@ -741,7 +721,8 @@ export default function CustomerRequirementsPage() {
                                     openQuickRestock(
                                       productObj?._id || item.productId,
                                       item.productName,
-                                      deficit > 0 ? deficit : needed
+                                      deficit > 0 ? deficit : needed,
+                                      currentLiveStock
                                     )
                                   }
                                   className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-neutral-950 text-[10px] font-bold uppercase tracking-wider rounded transition-colors cursor-pointer"
@@ -842,9 +823,9 @@ export default function CustomerRequirementsPage() {
               </button>
             </div>
 
-            <div className="space-y-2.5 max-h-[280px] overflow-y-auto pr-1">
+            <div className="space-y-2.5 pb-48">
               {itemRows.map((row, index) => {
-                const selectedProduct = products.find((p) => p._id === row.productId);
+                const selectedProduct = row.product;
                 const reqQty = parseInt(row.requestedQuantity, 10) || 0;
                 const hasEnoughStock = selectedProduct ? selectedProduct.stock >= reqQty : false;
                 const deficit = selectedProduct ? Math.max(0, reqQty - selectedProduct.stock) : 0;
@@ -856,20 +837,14 @@ export default function CustomerRequirementsPage() {
                   >
                     <div className="flex items-center gap-2">
                       <div className="flex-1">
-                        <select
-                          value={row.productId}
-                          onChange={(e) => updateItemRow(index, 'productId', e.target.value)}
-                          className="w-full px-3 py-2 bg-black text-neutral-200 border border-neutral-800 rounded-md text-xs focus:outline-hidden focus:border-amber-500 [&>option]:bg-black [&>option]:text-neutral-200 cursor-pointer"
-                        >
-                          <option value="" disabled className="bg-black text-neutral-500">
-                            Select Product
-                          </option>
-                          {products.map((p) => (
-                            <option key={p._id} value={p._id} className="bg-black text-neutral-200">
-                              {p.name} (Stock: {p.stock})
-                            </option>
-                          ))}
-                        </select>
+                        <ProductPicker
+                          value={row.product}
+                          onChange={(p) =>
+                            setItemRows((prev) =>
+                              prev.map((r, i) => (i === index ? { ...r, product: p, productId: p?._id || '' } : r))
+                            )
+                          }
+                        />
                       </div>
 
                       <div className="w-24">

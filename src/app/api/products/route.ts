@@ -27,7 +27,7 @@ export async function GET(req: Request) {
     if (categoryId) query.categoryId = categoryId;
     if (subcategoryId) query.subcategoryId = subcategoryId;
     if (search) {
-      query.name = { $regex: search.trim(), $options: 'i' };
+      query.name = { $regex: search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' };
     }
     
     const pageParam = searchParams.get('page');
