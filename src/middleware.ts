@@ -26,7 +26,8 @@ export function middleware(request: NextRequest) {
     pathname === '/subcategories' ||
     pathname === '/products' ||
     pathname.startsWith('/products/') ||
-    pathname === '/stock-history';
+    pathname === '/stock-history' ||
+    pathname === '/order-planner';
 
   const isAuthRoute = pathname === '/login' || pathname === '/signup';
 
@@ -54,6 +55,7 @@ export const config = {
     '/subcategories/:path*',
     '/products/:path*',
     '/stock-history/:path*',
+    '/order-planner/:path*',
     '/login',
     '/signup',
   ],

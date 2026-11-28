@@ -7,6 +7,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { 
   LayoutDashboard, 
   ClipboardList,
+  ShoppingCart,
   FolderTree, 
   Layers, 
   Package, 
@@ -43,6 +44,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const navItems = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Customer Orders', href: '/customer-requirements', icon: ClipboardList },
+    { name: 'Order Planner', href: '/order-planner', icon: ShoppingCart },
     { name: 'Categories', href: '/categories', icon: FolderTree },
     { name: 'Subcategories', href: '/subcategories', icon: Layers },
     { name: 'Products', href: '/products', icon: Package },
