@@ -49,6 +49,7 @@ export default function OrderPlannerPage() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<Filter>('ALL');
+  const [category, setCategory] = useState('ALL');
   const toast = useToast();
 
   const fetchPlan = async (isManualRefresh = false) => {
@@ -77,9 +78,20 @@ export default function OrderPlannerPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Categories that actually have something to order, with product counts
+  const categoryOptions = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const r of rows) {
+      const key = r.category || 'Uncategorized';
+      counts.set(key, (counts.get(key) || 0) + 1);
+    }
+    return Array.from(counts.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [rows]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return rows.filter((r) => {
+      if (category !== 'ALL' && (r.category || 'Uncategorized') !== category) return false;
       if (filter === 'CUSTOMER' && r.shortfall <= 0) return false;
       if (filter === 'LOW' && r.shortfall > 0) return false;
       if (!q) return true;
@@ -90,9 +102,9 @@ export default function OrderPlannerPage() {
         r.customers.some((c) => c.name.toLowerCase().includes(q))
       );
     });
-  }, [rows, filter, search]);
+  }, [rows, filter, search, category]);
 
-  const { pageItems, paginationProps } = usePagination(filtered, [filter, search], 20);
+  const { pageItems, paginationProps } = usePagination(filtered, [filter, search, category], 20);
 
   const exportCsv = () => {
     const esc = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
@@ -197,6 +209,21 @@ export default function OrderPlannerPage() {
           />
         </div>
 
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+        <select
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
+          className="bg-neutral-900 text-neutral-200 border border-neutral-800 rounded-md px-3 py-2 text-xs focus:outline-none focus:border-amber-500 cursor-pointer [&>option]:bg-black [&>option]:text-neutral-200"
+          title="Filter by category"
+        >
+          <option value="ALL">All Categories ({rows.length})</option>
+          {categoryOptions.map(([name, count]) => (
+            <option key={name} value={name}>
+              {name} ({count})
+            </option>
+          ))}
+        </select>
+
         <div className="flex items-center gap-1 bg-neutral-900 p-1 border border-neutral-800 rounded-md">
           {(
             [
@@ -215,6 +242,7 @@ export default function OrderPlannerPage() {
               {label}
             </button>
           ))}
+        </div>
         </div>
       </div>
 
