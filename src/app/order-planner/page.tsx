@@ -50,6 +50,7 @@ export default function OrderPlannerPage() {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<Filter>('ALL');
   const [category, setCategory] = useState('ALL');
+  const [subcategory, setSubcategory] = useState('ALL');
   const toast = useToast();
 
   const fetchPlan = async (isManualRefresh = false) => {
@@ -88,10 +89,22 @@ export default function OrderPlannerPage() {
     return Array.from(counts.entries()).sort((a, b) => a[0].localeCompare(b[0]));
   }, [rows]);
 
+  // Subcategories (limited to the selected category) that have something to order
+  const subcategoryOptions = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const r of rows) {
+      if (category !== 'ALL' && (r.category || 'Uncategorized') !== category) continue;
+      const key = r.subcategory || 'No subcategory';
+      counts.set(key, (counts.get(key) || 0) + 1);
+    }
+    return Array.from(counts.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [rows, category]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return rows.filter((r) => {
       if (category !== 'ALL' && (r.category || 'Uncategorized') !== category) return false;
+      if (subcategory !== 'ALL' && (r.subcategory || 'No subcategory') !== subcategory) return false;
       if (filter === 'CUSTOMER' && r.shortfall <= 0) return false;
       if (filter === 'LOW' && r.shortfall > 0) return false;
       if (!q) return true;
@@ -102,9 +115,9 @@ export default function OrderPlannerPage() {
         r.customers.some((c) => c.name.toLowerCase().includes(q))
       );
     });
-  }, [rows, filter, search, category]);
+  }, [rows, filter, search, category, subcategory]);
 
-  const { pageItems, paginationProps } = usePagination(filtered, [filter, search, category], 20);
+  const { pageItems, paginationProps } = usePagination(filtered, [filter, search, category, subcategory], 20);
 
   const exportCsv = () => {
     const esc = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
@@ -212,12 +225,29 @@ export default function OrderPlannerPage() {
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
         <select
           value={category}
-          onChange={(e) => setCategory(e.target.value)}
+          onChange={(e) => {
+            setCategory(e.target.value);
+            setSubcategory('ALL');
+          }}
           className="bg-neutral-900 text-neutral-200 border border-neutral-800 rounded-md px-3 py-2 text-xs focus:outline-none focus:border-amber-500 cursor-pointer [&>option]:bg-black [&>option]:text-neutral-200"
           title="Filter by category"
         >
           <option value="ALL">All Categories ({rows.length})</option>
           {categoryOptions.map(([name, count]) => (
+            <option key={name} value={name}>
+              {name} ({count})
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={subcategory}
+          onChange={(e) => setSubcategory(e.target.value)}
+          className="bg-neutral-900 text-neutral-200 border border-neutral-800 rounded-md px-3 py-2 text-xs focus:outline-none focus:border-amber-500 cursor-pointer [&>option]:bg-black [&>option]:text-neutral-200"
+          title="Filter by subcategory"
+        >
+          <option value="ALL">All Subcategories</option>
+          {subcategoryOptions.map(([name, count]) => (
             <option key={name} value={name}>
               {name} ({count})
             </option>
