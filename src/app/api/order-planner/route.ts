@@ -13,9 +13,9 @@ import { getSessionUser } from '@/lib/auth';
  * works out how many units of each product still need to be ordered.
  *
  *   pendingDemand = units customers still need that have not been deducted yet
- *   shortfall     = max(0, pendingDemand - stock)              -> needed for customer orders
- *   suggested     = max(0, pendingDemand + lowStockLimit - stock)
- *   buffer        = suggested - shortfall                      -> needed to stay above the low-stock limit
+ *   toOrder       = max(0, pendingDemand - stock)
+ *
+ * Only customer requirements are considered (the low-stock limit is NOT added).
  */
 export async function GET() {
   try {
@@ -59,31 +59,24 @@ export async function GET() {
         const d = demand.get(p._id.toString());
         const pendingDemand = d?.pendingDemand ?? 0;
         const stock = p.stock ?? 0;
-        const lowStockLimit = p.lowStockLimit ?? 0;
-        const shortfall = Math.max(0, pendingDemand - stock);
-        const suggestedOrder = Math.max(0, pendingDemand + lowStockLimit - stock);
+        const toOrder = Math.max(0, pendingDemand - stock);
         return {
           productId: p._id.toString(),
           name: p.name,
           category: p.categoryId?.name || '',
           subcategory: p.subcategoryId?.name || '',
           stock,
-          lowStockLimit,
           pendingDemand,
-          shortfall,
-          bufferNeeded: suggestedOrder - shortfall,
-          suggestedOrder,
+          toOrder,
           customers: d?.customers ?? [],
         };
       })
-      .filter((r) => r.suggestedOrder > 0)
-      .sort((a, b) => b.shortfall - a.shortfall || b.suggestedOrder - a.suggestedOrder);
+      .filter((r) => r.toOrder > 0)
+      .sort((a, b) => b.toOrder - a.toOrder);
 
     const summary = {
       productsToOrder: rows.length,
-      totalUnitsToOrder: rows.reduce((acc, r) => acc + r.suggestedOrder, 0),
-      productsWithCustomerShortage: rows.filter((r) => r.shortfall > 0).length,
-      unitsForCustomerOrders: rows.reduce((acc, r) => acc + r.shortfall, 0),
+      totalUnitsToOrder: rows.reduce((acc, r) => acc + r.toOrder, 0),
       openOrders: requirements.length,
     };
 
